@@ -16,6 +16,12 @@ This is an unofficial project and isn't affiliated with or supported by Zen Inte
 go install github.com/lavery98/zen-maintenance-exporter@latest
 ```
 
+### Using Docker
+
+```bash
+docker pull ghcr.io/lavery98/zen-maintenance-exporter:latest
+```
+
 ### Download Pre-built Binary
 
 Download the latest release for your platform from the [releases page](https://github.com/lavery98/zen-maintenance-exporter/releases).
@@ -31,6 +37,16 @@ zen-maintenance-exporter \
   --zen.location-regex='\b(EAIPS|Ipswich)\b' \
   --zen.network-regex='\bcity\s*fi(?:b)?re\b'
 ```
+
+### Run with Docker
+
+```bash
+docker run -p 10062:10062 ghcr.io/lavery98/zen-maintenance-exporter:latest \
+  --zen.location-regex='\b(EAIPS|Ipswich)\b' \
+  --zen.network-regex='\bcity\s*fi(?:b)?re\b'
+```
+
+There's a Compose example in [`examples/compose.yaml`](examples/compose.yaml).
 
 ### Test the Endpoint
 
@@ -89,6 +105,31 @@ Standard `go_*`, `process_*` and `promhttp_*` metrics are included unless you se
 
 If a poll fails, the exporter keeps serving its last good data and sets `zen_up` to 0, so a temporary problem doesn't clear your alerts.
 
+## Alerting
+
+[`examples/prometheus-rules.yaml`](examples/prometheus-rules.yaml) warns you 48 hours before work starts and while it's running, and tells you if the data stops updating. Test it with:
+
+```bash
+cd examples && promtool test rules prometheus-rules.test.yaml
+```
+
+This Alertmanager example groups duplicate alerts for the same window, limits reminders to once a day, and silences a connectivity alert during maintenance:
+
+```yaml
+route:
+  routes:
+    - matchers:
+        - alertname=~"ZenMaintenance(Upcoming|Possible|Active)"
+      group_by: [alertname, window]
+      repeat_interval: 24h
+
+inhibit_rules:
+  - source_matchers:
+      - alertname="ZenMaintenanceActive"
+    target_matchers:
+      - alertname="YourConnectivityAlert"
+```
+
 ## Building from Source
 
 ### Prerequisites
@@ -105,6 +146,12 @@ make build
 
 ```bash
 make test
+```
+
+### Build Image
+
+```bash
+make image
 ```
 
 ## License

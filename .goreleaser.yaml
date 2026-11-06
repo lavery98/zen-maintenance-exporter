@@ -1,0 +1,54 @@
+version: 2
+
+project_name: zen-maintenance-exporter
+
+builds:
+  - binary: zen-maintenance-exporter
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/prometheus/common/version.Version={{.Version}}
+      - -X github.com/prometheus/common/version.Revision={{.FullCommit}}
+      - -X github.com/prometheus/common/version.Branch={{.Branch}}
+      - -X github.com/prometheus/common/version.BuildDate={{.Date}}
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: zen-maintenance-exporter
+    name_template: "{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}{{- if .Arm }}v{{ .Arm }}{{ end }}"
+    formats: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+dockers_v2:
+  - images:
+      - "ghcr.io/lavery98/zen-maintenance-exporter"
+    tags:
+      - "latest"
+      - "{{ .Tag }}"
+    labels:
+      "org.opencontainers.image.name": "{{.ProjectName}}"
+      "org.opencontainers.image.description": "Prometheus exporter for Zen Internet maintenance affecting a chosen location"
+      "org.opencontainers.image.source": "{{.GitURL}}"
+      "org.opencontainers.image.url": "{{.GitURL}}"
+      "org.opencontainers.image.documentation": "{{.GitURL}}"
+      "org.opencontainers.image.created": "{{.Date}}"
+      "org.opencontainers.image.revision": "{{.FullCommit}}"
+      "org.opencontainers.image.version": "{{.Version}}"

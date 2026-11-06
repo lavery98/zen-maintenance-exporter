@@ -10,3 +10,7 @@ build:
 test:
 	go test ./...
 
+.PHONY: image
+image:
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build --trimpath --ldflags '-s' -o linux/$(GOARCH)/$(BINARY)
+	docker build --platform linux/$(GOARCH) -t ${IMAGE_NAME} .

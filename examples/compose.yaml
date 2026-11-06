@@ -1,0 +1,14 @@
+services:
+  zen-maintenance-exporter:
+    image: ghcr.io/lavery98/zen-maintenance-exporter:latest
+    restart: unless-stopped
+    command:
+      - --zen.location-regex=\b(EAIPS|Ipswich)\b
+      - --zen.network-regex=\bcity\s*fi(?:b)?re\b
+    expose:
+      - "10062"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true

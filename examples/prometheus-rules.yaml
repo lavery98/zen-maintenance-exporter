@@ -1,0 +1,56 @@
+groups:
+  - name: zen-maintenance
+    rules:
+      - alert: ZenMaintenanceUpcoming
+        expr: (zen_maintenance_start_timestamp_seconds{relevance="location"} - time()) > 0 < 172800
+        labels:
+          severity: warning
+        annotations:
+          summary: Zen maintenance is due at your location
+          description: >-
+            {{ $labels.title }}. Window: {{ $labels.window }}.
+            Type: {{ $labels.type }}. Zen's listed status: {{ $labels.impact }}.
+            Starts in {{ $value | humanizeDuration }}.
+
+      - alert: ZenMaintenanceActive
+        expr: |
+          zen_maintenance_start_timestamp_seconds{relevance="location"} <= time()
+            and on (service, id)
+          zen_maintenance_end_timestamp_seconds{relevance="location"} > time()
+        labels:
+          severity: warning
+        annotations:
+          summary: Zen maintenance is in progress at your location
+          description: >-
+            {{ $labels.title }}. Window: {{ $labels.window }}.
+            Type: {{ $labels.type }}. Zen's listed status: {{ $labels.impact }}.
+
+      - alert: ZenMaintenancePossible
+        expr: (zen_maintenance_start_timestamp_seconds{relevance="possible"} - time()) > 0 < 172800
+        labels:
+          severity: info
+        annotations:
+          summary: Zen maintenance on your network may affect your location
+          description: >-
+            {{ $labels.title }}. Zen doesn't list the affected areas.
+            Window: {{ $labels.window }}. Starts in {{ $value | humanizeDuration }}.
+
+      - alert: ZenExporterStale
+        expr: time() - zen_exporter_last_success_timestamp_seconds > 7200
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Zen maintenance data is out of date
+          description: >-
+            The last successful poll was {{ $value | humanizeDuration }} ago.
+            Zen's data file may have moved or changed format.
+
+      - alert: ZenExporterMissing
+        expr: absent(zen_exporter_last_success_timestamp_seconds)
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: Zen maintenance exporter metrics are missing
+          description: Check the exporter and its scrape target.

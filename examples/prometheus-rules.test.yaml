@@ -1,0 +1,124 @@
+rule_files:
+  - prometheus-rules.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # Maintenance from hour 72 to hour 78. promtool's clock starts at zero.
+  - interval: 1h
+    input_series:
+      - series: 'zen_maintenance_start_timestamp_seconds{service="connectivity.broadband",id="12592",relevance="location",type="Planned",impact="Outage",title="Ipswich work",window="Wed 18 Nov 00:00 GMT to Wed 18 Nov 06:00 GMT"}'
+        values: '259200x90'
+      - series: 'zen_maintenance_end_timestamp_seconds{service="connectivity.broadband",id="12592",relevance="location",type="Planned",impact="Outage",title="Ipswich work",window="Wed 18 Nov 00:00 GMT to Wed 18 Nov 06:00 GMT"}'
+        values: '280800x90'
+      - series: 'zen_maintenance_start_timestamp_seconds{service="connectivity.broadband",id="12645",relevance="possible",type="Planned",impact="Outage",title="Multiple Regions",window="Fri 20 Nov 01:00 GMT to Fri 20 Nov 06:00 GMT"}'
+        values: '259200x90'
+      - series: 'zen_maintenance_end_timestamp_seconds{service="connectivity.broadband",id="12645",relevance="possible",type="Planned",impact="Outage",title="Multiple Regions",window="Fri 20 Nov 01:00 GMT to Fri 20 Nov 06:00 GMT"}'
+        values: '280800x90'
+      - series: 'zen_exporter_last_success_timestamp_seconds'
+        values: '0+3600x90'
+    alert_rule_test:
+      # 49 hours before: too early for everything.
+      - eval_time: 23h
+        alertname: ZenMaintenanceUpcoming
+        exp_alerts: []
+      - eval_time: 23h
+        alertname: ZenMaintenancePossible
+        exp_alerts: []
+      # 47 hours before.
+      - eval_time: 25h
+        alertname: ZenMaintenanceUpcoming
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: connectivity.broadband
+              id: "12592"
+              relevance: location
+              type: Planned
+              impact: Outage
+              title: Ipswich work
+              window: Wed 18 Nov 00:00 GMT to Wed 18 Nov 06:00 GMT
+            exp_annotations:
+              summary: Zen maintenance is due at your location
+              description: "Ipswich work. Window: Wed 18 Nov 00:00 GMT to Wed 18 Nov 06:00 GMT. Type: Planned. Zen's listed status: Outage. Starts in 1d 23h 0m 0s."
+      - eval_time: 25h
+        alertname: ZenMaintenancePossible
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              service: connectivity.broadband
+              id: "12645"
+              relevance: possible
+              type: Planned
+              impact: Outage
+              title: Multiple Regions
+              window: Fri 20 Nov 01:00 GMT to Fri 20 Nov 06:00 GMT
+            exp_annotations:
+              summary: Zen maintenance on your network may affect your location
+              description: "Multiple Regions. Zen doesn't list the affected areas. Window: Fri 20 Nov 01:00 GMT to Fri 20 Nov 06:00 GMT. Starts in 1d 23h 0m 0s."
+      - eval_time: 25h
+        alertname: ZenMaintenanceActive
+        exp_alerts: []
+      # During the window.
+      - eval_time: 73h
+        alertname: ZenMaintenanceUpcoming
+        exp_alerts: []
+      - eval_time: 73h
+        alertname: ZenMaintenanceActive
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: connectivity.broadband
+              id: "12592"
+              relevance: location
+              type: Planned
+              impact: Outage
+              title: Ipswich work
+              window: Wed 18 Nov 00:00 GMT to Wed 18 Nov 06:00 GMT
+            exp_annotations:
+              summary: Zen maintenance is in progress at your location
+              description: "Ipswich work. Window: Wed 18 Nov 00:00 GMT to Wed 18 Nov 06:00 GMT. Type: Planned. Zen's listed status: Outage."
+      # After the window.
+      - eval_time: 79h
+        alertname: ZenMaintenanceActive
+        exp_alerts: []
+      # Polls are healthy, so neither health alert fires.
+      - eval_time: 25h
+        alertname: ZenExporterStale
+        exp_alerts: []
+      - eval_time: 25h
+        alertname: ZenExporterMissing
+        exp_alerts: []
+
+  # Polling stops at hour 1. Stale needs 2 hours plus 15 minutes.
+  - interval: 1m
+    input_series:
+      - series: 'zen_exporter_last_success_timestamp_seconds'
+        values: '3600x240'
+    alert_rule_test:
+      - eval_time: 3h
+        alertname: ZenExporterStale
+        exp_alerts: []
+      - eval_time: 3h20m
+        alertname: ZenExporterStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Zen maintenance data is out of date
+              description: "The last successful poll was 2h 20m 0s ago. Zen's data file may have moved or changed format."
+
+  # The exporter has gone away entirely.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="something-else"}'
+        values: '1x60'
+    alert_rule_test:
+      - eval_time: 45m
+        alertname: ZenExporterMissing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Zen maintenance exporter metrics are missing
+              description: Check the exporter and its scrape target.
